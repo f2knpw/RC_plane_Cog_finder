@@ -10,9 +10,13 @@ This solution is based on 2 hobby scales and scrap arrows found broken in a club
 My design allows to find CoG of almost any RC planes and gliders:
 
 capability of weighing bottom or top wings planes
+
 fuselage width can be adjusted
+
 wing cord can be adjusted
+
 fully automatic mode
+
 Android Application
 
 Full project is available on my hackadays pages : https://hackaday.io/project/202834-rc-plane-center-of-gravity-finder

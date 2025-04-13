@@ -16,6 +16,7 @@ fully automatic mode
 Android Application
 
 Full project is available on my hackadays pages : https://hackaday.io/project/202834-rc-plane-center-of-gravity-finder
+
 PCB is available on my PCBWay shared project here : https://www.pcbway.com/project/shareproject/RC_plane_CoG_finder_390a1266.html
 
 Firmware for ESP32 is available here : https://github.com/f2knpw/RC_plane_Cog_finder/blob/master/ESP32_RC_plane_CoG_finder.ino

@@ -19,5 +19,7 @@ Full project is available on my hackadays pages : https://hackaday.io/project/20
 PCB is available on my PCBWay shared project here : https://www.pcbway.com/project/shareproject/RC_plane_CoG_finder_390a1266.html
 
 Firmware for ESP32 is available here : https://github.com/f2knpw/RC_plane_Cog_finder/blob/master/ESP32_RC_plane_CoG_finder.ino
+
 Android App source code is available here : https://github.com/f2knpw/RC_plane_Cog_finder/blob/master/JP_RCplaneCoGfinder.zip
+
 This App is comiled with B4A compiler : https://www.b4x.com/b4a.html

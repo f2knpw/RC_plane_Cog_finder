@@ -40,7 +40,7 @@ long lastOled;
 bool hasAcquiredSensors = false;
 
 //wifi option
-//#define HAS_AP  //will only show an access point
+#define HAS_AP  //will only show an access point
 #ifdef HAS_AP
 // Replace with your network credentials
 const char* APssid = "JP RC_CoG_finder";
@@ -50,14 +50,19 @@ const char* APpassword = "";
 float temperature = 0;
 int smooth = 10;  //acquire smooth*values for each ADC
 
+#define PIN_CONF 13   //CONF pin on the board. Used for wifi manager
+#define PIN_SW 16     //switch pin for rotary encoder
+#define PIN_ENC_A 15  //rotary encoder A pin
+#define PIN_ENC_B 4   //rotary encoder B pin
+
 
 //front scale
-#define PIN_CLOCK 19  //output to generate clock on Hx711
-#define PIN_DOUT 23   //input Dout from Hx711
+#define PIN_CLOCK 14  //output to generate clock on Hx711
+#define PIN_DOUT 12   //input Dout from Hx711
 
 //back scale
-#define PIN_CLOCK2 26  //output to generate clock on Hx711_2
-#define PIN_DOUT2 25   //input Dout from Hx711_2
+#define PIN_CLOCK2 32  //output to generate clock on Hx711_2
+#define PIN_DOUT2 33   //input Dout from Hx711_2
 
 long calibZero = 0;      //No load front scale Output
 long calib = 130968;     //sensor output - calibZero for Weight calibration --> will be auto calibrated later
@@ -129,11 +134,8 @@ boolean hasWifiCredentials = false;
 #define PREFERENCES_DEBUG
 //#define DEBUG_TELNET
 //#define RAW_WEIGHT_DEBUG
-//#define DEBUG_TEMPERATURE
 //#define DEBUG_W
-//#define DEBUG_VIN     //debug voltage measurement, useful to calibrate
-//#define DEBUG_CURRENT //debug current measurement, useful to calibrate
-//#define DEBUG_RPM
+
 
 //UDP --------------
 unsigned int localPort = 5000;  // local port to listen on

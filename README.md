@@ -1,4 +1,4 @@
-# RC_plane_Cog_finder
+# RC_plane_CoG_finder
 An automatic device to fine tune the center of gravity of your planes
 
 Finding the Center of Gravity (CoG) of your plane is something that all RC pilots have to do before maiden flight (and after !).

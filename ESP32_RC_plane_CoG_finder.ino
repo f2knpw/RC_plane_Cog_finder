@@ -95,6 +95,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 //sensors selection
 #define HAS_FRONT_SCALE
 #define HAS_BACK_SCALE
+//#define HAS_WIFI        //leave this line commented if you only want Bluetooth Low Energy ; uncomment for both Wifi and BLE
 
 //wifi option
 //click on the encoder button while booting the ESP32 to launch a Wifi access point
@@ -171,6 +172,7 @@ boolean hasWifiCredentials = false;
 //#define TEST
 #define PREFERENCES_DEBUG
 //#define DEBUG_TELNET      //debug using telnet
+#define DEBUG_BLE
 //#define RAW_WEIGHT_DEBUG  //debug scales
 //#define DEBUG_W
 
@@ -186,6 +188,124 @@ String theMAC = "";
 WiFiUDP Udp;
 long LastUDPnotification;
 //end UDP-----------
+
+//**************
+//BLE
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
+long LastBLEnotification;
+
+//BLE declarations
+BLECharacteristic* pCharacteristic;
+bool deviceConnected = false;
+// See the following for generating UUIDs:
+// https://www.uuidgenerator.net/
+
+#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c3319160"
+#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26bb"
+
+void BLEnotify(String theString) {
+  // if (deviceConnected == true)
+  {
+#ifdef xDEBUG_BLE
+    Serial.print("BLE notify : ");
+    Serial.println(theString);
+#endif
+    char message[21];
+    String small = "";  //BLE notification MTU is limited to 20 bytes
+    while (theString.length() > 0) {
+      small = theString.substring(0, 19);  //cut into 20 chars slices
+      theString = theString.substring(19);
+      small.toCharArray(message, 20);
+      pCharacteristic->setValue(message);
+      pCharacteristic->notify();
+      delay(3);                        // bluetooth stack will go into congestion, if too many packets are sent
+      LastBLEnotification = millis();  //will prevent to send new notification before this one is not totally sent
+    }
+  }
+  digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+}
+
+class MyServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    deviceConnected = true;
+#ifdef DEBUG_BLE
+    Serial.println("client connected");
+#endif
+  };
+
+  void onDisconnect(BLEServer* pServer) {
+    deviceConnected = false;
+#ifdef DEBUG_BLE
+    Serial.println("client disconnected");
+#endif
+    // Start advertising
+    pServer->getAdvertising()->stop();
+    delay(100);
+    pServer->getAdvertising()->start();
+#ifdef DEBUG_BLE
+    Serial.println("Waiting a client connection to notify...");
+#endif
+    delay(100);
+  }
+};
+
+class MyCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* pCharacteristic) {
+    std::string rxValue = pCharacteristic->getValue();
+    String test = "";
+    if (rxValue.length() > 0) {
+#ifdef DEBUG_OUT
+      Serial.print("Received : ");
+#endif
+      for (int i = 0; i < rxValue.length(); i++) {
+#ifdef DEBUG_OUT
+        Serial.print(rxValue[i]);
+#endif
+        test = test + rxValue[i];
+      }
+#ifdef DEBUG_OUT
+      Serial.println();
+#endif
+    }
+    String Res;
+
+    int i;
+    if (test.startsWith("{"))  //then it may contain JSON
+    {
+      StaticJsonDocument<2000> doc;
+      DeserializationError error = deserializeJson(doc, test);
+      // Test if parsing succeeds.
+      if (error) {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.c_str());
+        Serial.println("deserializeJson() failed");  //answer with error : {"answer" : "error","detail":"decoding failed"}
+        BLEnotify("{\"answer\" : \"error\",\"detail\":\"decoding failed\"}");
+      } else {
+        // Fetch values --> {"Cmd":"Start"}
+        String Cmd = doc["Cmd"];
+        if (Cmd == "Start")  //start pump
+        {
+#ifdef DEBUG_OUT
+          Serial.print("Start pump ");
+#endif
+          // status = statusStart;
+        } else if (Cmd == "Stop")  //stop pump
+        {
+#ifdef DEBUG_OUT
+          Serial.print("Stop pump ");
+#endif
+          // startPump(false);
+          //lastStart = millis();
+          //status = statusStop;
+        }
+      }
+    }
+  }
+};
 
 
 void setup() {
@@ -213,6 +333,40 @@ void setup() {
   display.display();
   delay(2500);
 #endif
+
+  //BLE
+  // Create the BLE Device
+  BLEDevice::init("JP CoGfinder");
+
+  // Create the BLE Server
+  BLEServer* pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  // Create the BLE Service
+  BLEService* pService = pServer->createService(SERVICE_UUID);
+
+  // Create a BLE Characteristic
+  pCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID,
+    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE);
+
+  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+  // Create a BLE Descriptor
+  pCharacteristic->addDescriptor(new BLE2902());
+
+  pCharacteristic->setCallbacks(new MyCallbacks());
+
+  // Start the service
+  pService->start();
+
+  // Start advertising
+  pServer->getAdvertising()->start();
+#ifdef DEBUG_BLE
+  Serial.println("Waiting a client connection...");
+#endif
+
+
+  delay(100);
 
   Serial.println("***************");
   Serial.println("program started");
@@ -255,7 +409,7 @@ void setup() {
 #endif
   //preferences.end();  // Close the Preferences
 
-
+#ifdef HAS_WIFI
 
   // click on encoder button during boot to launch an Access point for the Android to connect
   if (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == LOW) {
@@ -273,7 +427,7 @@ void setup() {
     display.setTextSize(1);
     display.print("AP : JP RC_CoGfinder");
     display.display();
-    delay(2000);
+    delay(4000);
 #endif
   } else  // regular use of a Wifi network on which ESP32 is connected
   {
@@ -285,7 +439,8 @@ void setup() {
     display.display();
 #endif
 
-    if (digitalRead(PIN_CONF) == LOW)   //short CONF pins to launch wifimanager
+
+    if (digitalRead(PIN_CONF) == LOW)  //short CONF pins to launch wifimanager
     {
 #ifdef OLED
       display.clearDisplay();
@@ -297,6 +452,8 @@ void setup() {
       display.display();
       delay(2000);
 #endif
+
+
       //  //connect to WiFi
       //WiFiManager
       //Local intialization. Once its business is done, there is no need to keep it around
@@ -362,6 +519,8 @@ void setup() {
     //Start UDP
     Udp.begin(localPort);
   }
+
+#endif  //end HAS_WIFI
 
   Serial.println(" ");
   Serial.println("start monitoring sensors : \n");
@@ -446,7 +605,7 @@ void loop() {
   else CoG = .01;  //avoid divide by zero
 
 
-
+#ifdef HAS_WIFI
   //************
   // UDP process
   //************
@@ -504,7 +663,7 @@ void loop() {
     }
   }
 
-
+#endif  //end HAS_WIFI
 
 
   //send sensors data as fast as possible (else uncomment the following line)
@@ -512,11 +671,17 @@ void loop() {
   {
     res = "{\"F\": " + String(AverageWeight) + ",\"B\": " + String(AverageWeight2) + ",\"L\": " + String(length) + ",\"L1\": " + String(L1) + ",\"L2\": " + String(L2) + ",\"C\": " + String(CoG) + ",\"TC\": " + String(targetCoG) + "}";
     LastUDPnotification = millis();
+    BLEnotify(res);  //try to send via Bluetooth
 #ifdef DEBUG_TELNET
     TelnetStream.println(res);
 #endif
-    sendUDP(res);  //try to send via UDP
+#ifdef HAS_WIFI
+    if (deviceConnected == false) sendUDP(res);  //try to send via UDP if not connected to BLE
+#endif
   }
+
+
+
 
 
   if (((millis() - timeOut) > 6000) && (AndroidConnected == 1)) {

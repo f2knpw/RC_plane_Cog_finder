@@ -113,7 +113,7 @@ const char* APpassword = "";
 //back scale
 #define PIN_CLOCK2 32  //output to generate clock on Hx711_2
 #define PIN_DOUT2 33   //input Dout from Hx711_2
-
+bool doCalibZero = false; //calibration should not be done into Bluetooth call back...
 long calibZero = 0;      //No load front scale Output
 long calib = 130968;     //sensor output - calibZero for Weight calibration --> will be auto calibrated later
 int calibWeight = 1000;  //weight at which calibration is done --> expressed in grams.
@@ -165,7 +165,7 @@ boolean hasWifiCredentials = false;
 
 
 //#define W_DEBUG     //debug Wifi
-//#define DEBUG_OUT
+#define DEBUG_OUT
 //#define xDEBUG
 #define E_DEBUG    //debug rotary encoder
 #define UDP_DEBUG  //debug UDP messages
@@ -174,6 +174,7 @@ boolean hasWifiCredentials = false;
 //#define DEBUG_TELNET      //debug using telnet
 #define DEBUG_BLE
 //#define RAW_WEIGHT_DEBUG  //debug scales
+#define DEBUG_CAL0
 //#define DEBUG_W
 
 
@@ -271,39 +272,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
       Serial.println();
 #endif
     }
-    String Res;
-
-    int i;
-    if (test.startsWith("{"))  //then it may contain JSON
-    {
-      StaticJsonDocument<2000> doc;
-      DeserializationError error = deserializeJson(doc, test);
-      // Test if parsing succeeds.
-      if (error) {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.c_str());
-        Serial.println("deserializeJson() failed");  //answer with error : {"answer" : "error","detail":"decoding failed"}
-        BLEnotify("{\"answer\" : \"error\",\"detail\":\"decoding failed\"}");
-      } else {
-        // Fetch values --> {"Cmd":"Start"}
-        String Cmd = doc["Cmd"];
-        if (Cmd == "Start")  //start pump
-        {
-#ifdef DEBUG_OUT
-          Serial.print("Start pump ");
-#endif
-          // status = statusStart;
-        } else if (Cmd == "Stop")  //stop pump
-        {
-#ifdef DEBUG_OUT
-          Serial.print("Stop pump ");
-#endif
-          // startPump(false);
-          //lastStart = millis();
-          //status = statusStop;
-        }
-      }
-    }
+    readCmd(test);
   }
 };
 
@@ -604,6 +573,11 @@ void loop() {
   if ((AverageWeight + AverageWeight2) != 0) CoG = AverageWeight2 * length / (AverageWeight + AverageWeight2);
   else CoG = .01;  //avoid divide by zero
 
+if (doCalibZero)  //a way to perform tare outside the BLE callback
+{
+  doCalibZero = false;
+  getCalibZero();
+}
 
 #ifdef HAS_WIFI
   //************
@@ -778,13 +752,16 @@ void readCmd(String test) {
     } else {
       // Fetch values --> {"Cmd":"CalF"}
       String Cmd = doc["Cmd"];
-      if (Cmd == "CalF")  //front scale calibration
+      if (Cmd == "Cal0")  //lever Length calibration
+      {
+        Serial.println("tare scales... ");
+        doCalibZero = true;  //getCalibZero(); will be done into the main loop
+      } else if (Cmd == "CalF")  //front scale calibration
       {
 #ifdef HAS_FRONT_SCALE
         String value = doc["value"];
         calibWeight = value.toInt();
-        GetRawWeight();  //HX711 sensor
-
+        //GetRawWeight();  //HX711 sensor is already acquired in the main loop
         calib = calibZero - CurrentRawWeight;
         if (calib == 0) calib = 130968;
         Serial.print("calibration front scale... ");
@@ -800,8 +777,7 @@ void readCmd(String test) {
 #ifdef HAS_BACK_SCALE
         String value = doc["value"];
         calibWeight2 = value.toInt();
-        GetRawWeight2();  //HX711_2 sensor
-
+        //GetRawWeight2();  //HX711_2 sensor already acquired into the main loop
         calib2 = calibZero2 - CurrentRawWeight2;
         if (calib2 == 0) calib2 = 130968;
         Serial.print("calibration back scale... ");
@@ -852,10 +828,6 @@ void readCmd(String test) {
         Serial.println(" mm ");
 
         preferences.putInt("CoG", targetCoG);
-      } else if (Cmd == "Cal0")  //lever Length calibration
-      {
-        Serial.println("tare scales... ");
-        getCalibZero();
       }
     }
   }
@@ -975,8 +947,10 @@ void getCalibZero() {
 
   GetRawWeight();
   calibZero = CurrentRawWeight;  // during boot the motor doesn't spin = no thrust on the propeller
+
+
 //preferences.putLong("calibZero", calibZero); // no need to store it: computed during each boot and used during loop
-#ifdef DEBUG_W
+#ifdef DEBUG_CAL0
   Serial.print("front scale calibZero raw value = ");
   Serial.println(calibZero);
 #endif
@@ -993,7 +967,7 @@ void getCalibZero() {
   GetRawWeight2();
   calibZero2 = CurrentRawWeight2;  // during boot the motor doesn't spin = no thrust on the torque load cell
 //preferences.putLong("calibZero2", calibZero2); // no need to store it: computed during each boot and used during loop
-#ifdef DEBUG_W
+#ifdef DEBUG_CAL0
   Serial.print("back scale calibZero2 raw value = ");
   Serial.println(calibZero2);
 #endif

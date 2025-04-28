@@ -5,8 +5,9 @@
 #include <esp_wifi.h>
 //#include <esp_bt.h>
 
-
+//#define HAS_ENCODER  //uncomment htis line if you are using the rotary encoder for menu display
 //rotary encoder
+#ifdef HAS_ENCODER
 #include "FastInterruptEncoder.h"  //https://github.com/levkovigor/FastInterruptEncoder
 #define ROTARY_ENCODER_A_PIN 15
 #define ROTARY_ENCODER_B_PIN 4
@@ -41,6 +42,7 @@ bool isEncoderButtonClicked() {  // eats the clcik release event
     return true;
   } else return false;
 }
+#endif
 
 
 int nbTimeout = 0;
@@ -111,12 +113,12 @@ const char* APpassword = "";
 #define PIN_DOUT 12   //input Dout from Hx711
 
 //back scale
-#define PIN_CLOCK2 32  //output to generate clock on Hx711_2
-#define PIN_DOUT2 33   //input Dout from Hx711_2
-bool doCalibZero = false; //calibration should not be done into Bluetooth call back...
-long calibZero = 0;      //No load front scale Output
-long calib = 130968;     //sensor output - calibZero for Weight calibration --> will be auto calibrated later
-int calibWeight = 1000;  //weight at which calibration is done --> expressed in grams.
+#define PIN_CLOCK2 32      //output to generate clock on Hx711_2
+#define PIN_DOUT2 33       //input Dout from Hx711_2
+bool doCalibZero = false;  //calibration should not be done into Bluetooth call back...
+long calibZero = 0;        //No load front scale Output
+long calib = 130968;       //sensor output - calibZero for Weight calibration --> will be auto calibrated later
+int calibWeight = 1000;    //weight at which calibration is done --> expressed in grams.
 float AverageWeight = 0;
 float CurrentRawWeight = 0;
 
@@ -283,8 +285,11 @@ void setup() {
   Serial.begin(115200);
   pinMode(PIN_CONF, INPUT_PULLUP);
 
+
+#ifdef HAS_ENCODER
   pinMode(ROTARY_ENCODER_BUTTON_PIN, INPUT_PULLUP);               //rotary encoder push button must be pulled up
   attachInterrupt(ROTARY_ENCODER_BUTTON_PIN, buttonISR, RISING);  //will detect the click release event and launch buttonISR function
+#endif
 
   // initialise the oled display
 #ifdef OLED
@@ -507,7 +512,7 @@ void setup() {
   TelnetStream.print("start");
 #endif
 
-
+#ifdef HAS_ENCODER
   //we must initialize rotary encoder (don't do it before wifi is launched... or crash !)
   if (enc.init()) {
     Serial.println("Encoder Initialization OK");
@@ -526,7 +531,7 @@ void setup() {
   timerAlarmWrite(timer, 10000, true);
   /* Start an alarm */
   timerAlarmEnable(timer);
-
+#endif
 
 
   LastUDPnotification = millis();
@@ -534,16 +539,17 @@ void setup() {
 
 //***********************************************************************************************************************
 void loop() {
-  // esp_task_wdt_reset();  //reset the watchdog
+// esp_task_wdt_reset();  //reset the watchdog
 
-  // if a oled menu is active service it
+// if a oled menu is active service it
+#ifdef HAS_ENCODER
   menuCheck();             // check if encoder selection button is pressed
   if (menuTitle != "") {   // if a menu is active
     menuItemSelection();   // check for change in menu item highlighted
     staticMenu();          // display the menu
     menuItemActions();     // act if a menu item has been clicked
   } else displayValues();  // if no menu active,then will display realtime acquisitions
-
+#endif
     //*******************
     //acquire all sensors
     //*******************
@@ -573,11 +579,11 @@ void loop() {
   if ((AverageWeight + AverageWeight2) != 0) CoG = AverageWeight2 * length / (AverageWeight + AverageWeight2);
   else CoG = .01;  //avoid divide by zero
 
-if (doCalibZero)  //a way to perform tare outside the BLE callback
-{
-  doCalibZero = false;
-  getCalibZero();
-}
+  if (doCalibZero)  //a way to perform tare outside the BLE callback
+  {
+    doCalibZero = false;
+    getCalibZero();
+  }
 
 #ifdef HAS_WIFI
   //************
@@ -755,7 +761,7 @@ void readCmd(String test) {
       if (Cmd == "Cal0")  //lever Length calibration
       {
         Serial.println("tare scales... ");
-        doCalibZero = true;  //getCalibZero(); will be done into the main loop
+        doCalibZero = true;      //getCalibZero(); will be done into the main loop
       } else if (Cmd == "CalF")  //front scale calibration
       {
 #ifdef HAS_FRONT_SCALE
@@ -985,7 +991,7 @@ void getCalibZero() {
 
 
 // Available Menus
-
+#ifdef HAS_ENCODER
 // main menu
 void Main_Menu() {
   menuTitle = "Menu";              // set the menu title
@@ -1206,13 +1212,13 @@ void staticMenu() {
   display.display();  // update display
 }
 
-
+#endif
 //  --------------------------------------
 
 
 // rotary encoder button
 //    returns 1 if the button status has changed since last time
-
+#ifdef HAS_ENCODER
 bool menuCheck() {
 
 
@@ -1397,6 +1403,6 @@ void exitMenu() {
   enc.resetTicks();
 }
 
-
+#endif
 
 // ---------------------------------------------- end ----------------------------------------------

@@ -5,7 +5,7 @@
 #include <esp_wifi.h>
 //#include <esp_bt.h>
 
-//#define HAS_ENCODER  //uncomment htis line if you are using the rotary encoder for menu display
+#define HAS_ENCODER  //uncomment this line if you are using the rotary encoder for menu display
 //rotary encoder
 #ifdef HAS_ENCODER
 #include "FastInterruptEncoder.h"  //https://github.com/levkovigor/FastInterruptEncoder
@@ -1009,7 +1009,8 @@ void menu2() {
   setMenu(0, "tare");
   setMenu(1, "calib front scale");
   setMenu(2, "calib back scale");
-  setMenu(3, "return");
+  setMenu(3, "set calib weight");
+  setMenu(4, "return");
 }
 
 
@@ -1150,6 +1151,13 @@ void menuItemActions() {
     preferences.putLong("calib2", calib2);
   }
   if (menuTitle == "calibration" && menuItemClicked == 3) {
+    menuItemClicked = 100;
+    Serial.println("Menu: set calib weight selected");
+     calibWeight = enterValue("calib weight (g)", calibWeight, 1, 100, 10000);  // enter a value (title, start value, step size, low limit, high limit)
+        Serial.println("calib weight set = " + String(calibWeight));
+        preferences.putInt("calibWeight", calibWeight);
+  }
+  if (menuTitle == "calibration" && menuItemClicked == 4) {
     menuItemClicked = 100;
     Serial.println("Menu: exit selected");
     // Display splash screen on OLED

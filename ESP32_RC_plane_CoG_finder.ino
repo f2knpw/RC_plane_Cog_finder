@@ -5,7 +5,7 @@
 #include <esp_wifi.h>
 //#include <esp_bt.h>
 
-#define HAS_ENCODER  //uncomment this line if you are using the rotary encoder for menu display
+//#define HAS_ENCODER  //uncomment this line if you are using the rotary encoder for menu display
 //rotary encoder
 #ifdef HAS_ENCODER
 #include "FastInterruptEncoder.h"  //https://github.com/levkovigor/FastInterruptEncoder
@@ -118,13 +118,12 @@ const char* APpassword = "";
 bool doCalibZero = false;  //calibration should not be done into Bluetooth call back...
 long calibZero = 0;        //No load front scale Output
 long calib = 130968;       //sensor output - calibZero for Weight calibration --> will be auto calibrated later
-int calibWeight = 1000;    //weight at which calibration is done --> expressed in grams.
+int calibWeight = 1000;    //weight at which calibration is done --> expressed in grams. Same value forboth
 float AverageWeight = 0;
 float CurrentRawWeight = 0;
 
 long calibZero2 = 0;      //No load back scale sensor Output
 long calib2 = 130968;     //sensor output - calibZero2 for Weight calibration --> will be auto calibrated later
-int calibWeight2 = 1000;  //weight at which calibration is done --> expressed in grams.
 float AverageWeight2 = 0;
 float CurrentRawWeight2 = 0;
 
@@ -356,8 +355,6 @@ void setup() {
 
   calibWeight = preferences.getInt("calibWeight", 500);  //by default calibration of load cell is done with 500g load attached to the front scale
   calib = preferences.getLong("calib", -222444);         //will be computed during calibration menu
-
-  calibWeight2 = preferences.getInt("calibWeight2", 500);  //by default calibration of load cell is done with 500g load attached to the back scale
   calib2 = preferences.getLong("calib2", -222444);         //will be computed during calibration menu
 
   length = preferences.getInt("length", 200);  //by default calibration of lever length is 200mm can be changed using menu
@@ -377,8 +374,6 @@ void setup() {
   Serial.println(calibWeight);
   Serial.print("calib back scale : ");
   Serial.println(calib2);
-  Serial.print("calib2 weight (g) : ");
-  Serial.println(calibWeight2);
   Serial.println("_________________");
 #endif
   //preferences.end();  // Close the Preferences
@@ -568,7 +563,7 @@ void loop() {
   //back scale HX711_2
 #ifdef HAS_BACK_SCALE
   GetRawWeight2();  //HX711 sensor
-  AverageWeight2 = (calibZero2 - CurrentRawWeight2) * calibWeight2 / (calib2);
+  AverageWeight2 = (calibZero2 - CurrentRawWeight2) * calibWeight / (calib2);
 #ifdef DEBUG
   Serial.print("back scale weight2 = ");
   Serial.print(AverageWeight2);
@@ -682,22 +677,22 @@ void displayValues(void) {
     display.setCursor(0, lineSpace1 * 0);
     display.setTextSize(1);
     display.print("CoG ");
-    display.print(CoG);
+    display.printf("%4.1f",CoG);
     display.print("mm");
     display.setCursor(0, lineSpace1 * 1);
     display.print("targetCoG ");
-    display.print(targetCoG);
+    display.printf("%4.1f",targetCoG);
     display.print("mm");
 
     display.setCursor(0, lineSpace1 * 3);
     display.print("Weight ");
-    display.print(AverageWeight + AverageWeight2);
+    display.print((int)(AverageWeight + AverageWeight2));
     display.print("g");
     display.setCursor(0, lineSpace1 * 4);
     display.print("Wf ");
-    display.print(AverageWeight);
+    display.print((int)(AverageWeight));
     display.print(" Wb ");
-    display.print(AverageWeight2);
+    display.print((int)(AverageWeight2));
     display.print("g");
     display.setCursor(0, lineSpace1 * 6);
     // compute weight to add to tail or nose
@@ -705,12 +700,12 @@ void displayValues(void) {
     if ((CoG - targetCoG) > 0) {
       addWeight = (length * AverageWeight2 - (targetCoG * (AverageWeight + AverageWeight2))) / (L1 + targetCoG);
       display.print("add ");
-      display.print(addWeight);
+      display.printf("%4.1f",addWeight);
       display.print("g to nose");
     } else {
       addWeight = (length * AverageWeight2 - (targetCoG * (AverageWeight + AverageWeight2))) / (-L2 + targetCoG);
       display.print("add ");
-      display.print(addWeight);
+      display.printf("%4.1f",addWeight);
       display.print("g to tail");
     }
 
@@ -782,17 +777,17 @@ void readCmd(String test) {
       {
 #ifdef HAS_BACK_SCALE
         String value = doc["value"];
-        calibWeight2 = value.toInt();
+        calibWeight = value.toInt();
         //GetRawWeight2();  //HX711_2 sensor already acquired into the main loop
         calib2 = calibZero2 - CurrentRawWeight2;
         if (calib2 == 0) calib2 = 130968;
         Serial.print("calibration back scale... ");
         Serial.println(calib2);
         Serial.print(" for weight (g) ");
-        Serial.println(calibWeight2);
+        Serial.println(calibWeight);
 
         preferences.putLong("calib2", calib2);
-        preferences.putInt("calibWeight2", calibWeight2);
+        preferences.putInt("calibWeight", calibWeight);
 #endif
       } else if (Cmd == "SetL")  //lever Length calibration
       {
@@ -1147,7 +1142,7 @@ void menuItemActions() {
     Serial.print("calibration back scale... ");
     Serial.println(calib2);
     Serial.print(" for weight (g) ");
-    Serial.println(calibWeight2);
+    Serial.println(calibWeight);
     preferences.putLong("calib2", calib2);
   }
   if (menuTitle == "calibration" && menuItemClicked == 3) {
